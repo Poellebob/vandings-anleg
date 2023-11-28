@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-const int motor = 1;
+const int motor = 13;
 const int sensor = 'A0';
 
 const int thresh= 500;
