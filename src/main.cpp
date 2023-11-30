@@ -22,13 +22,15 @@ void setup() {
 
 void loop() {
   int sensorValue = analogRead(sensor);
-
-  if (sensorValue < thresh) {
+  
+  if (sensorValue < thresh) { 
     digitalWrite(motor, HIGH);
-    delay(watering_time_s * 1000);
+    //delay(watering_time_s * 1000);
+  }
+  if (sensorValue > thresh){
     digitalWrite(motor, LOW);
   }
-  //delay(scan_time_s * 1000);
+  
   lcd.setCursor(1, 0);
   lcd.print("Soil Moisture: ");
   lcd.setCursor(1, 1);
