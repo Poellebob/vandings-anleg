@@ -1,9 +1,6 @@
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h>
 
-#define I2C_SDA 25
-#define I2C_SCL 26
-
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
 const int motor = 13;
@@ -14,8 +11,10 @@ const int scan_time_s = 3600;
 const int watering_time_s = 10;
 
 void setup() {
-  lcd.begin(20, 4); // Remove the extra arguments
-  lcd.setBacklight(LOW); // Add this line to turn off the backlight
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Hello, world!"); 
   pinMode(motor, OUTPUT);
 }
 
