@@ -3,65 +3,100 @@
 #include <LiquidCrystal_I2C.h>
 
 //defining constants
-#define second_t 16000000
-#define second 1000
+#define second_t         16000000
+#define thresh_s         10
+#define watering_time_s  10
 
-#define motor 12
-#define sensorPin A0
-
-#define thresh  500
-#define scan_time_s 3600
-#define watering_time_s 10
-
-//defining custom character for LCD
-const byte costumchar[8] = {
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000
-};
+#define motor            12
+#define sensorPin1       A0
+#define sensorPin2       A1
+#define sensorPin3       A2
+#define sensorPin4       A3
 
 //defining lcd
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
 //defining functions
-void water(); // function to control watering based on sensor reading
-void lcdPrint(String Write); // function to print text on LCD
-void lcdPrint(String Write, int col, int row); // function to print text on LCD at specific position
-int nummap(float x, float in_min, float in_max, float out_min, float out_max); // function to map a value from one range to another
+void lcdPrint(String Write); 
+void lcdPrint(String Write, int col, int row); 
+int nummap(float x, float in_min, float in_max, float out_min, float out_max); 
+int findIndexOfLargest(const int arr[]);
 
 //defining variables
-int tiksSinceLastScan = 0; // variable to keep track of time since last scan
+int tiksSinceLastScan = 0; 
+int sensor[4] = {0, 0, 0, 0}; 
+int largestSensorIndex = 0;
 
-// 2D arrays to store the LCD screen content
-byte newScreen[4][20];
-byte onScreen[4][20];
-int onScreenPos[2] = {0, 0}; // array to store the current position of the curser on the LCD screen
+// 2D array to store the LCD screen content
+byte onScreen[4][20] = {
+  {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+  {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+  {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+  {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '}
+};
+int onScreenPos[2] = {0, 0};
 
 void setup() {
-  lcd.init(); // initialize the LCD
-  lcd.backlight(); // turn on the backlight
-  pinMode(motor, OUTPUT); // set the motor pin as output
-  Serial.begin(9600); // initialize the serial communication
+  // initialize the LCD
+  lcd.init(); 
+  lcd.backlight(); 
+  pinMode(motor, OUTPUT); 
+  Serial.begin(9600);
 
-  for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 20; j++)
-    {
-      newScreen[i][j] = ' '; // initialize the newScreen array with empty characters
-    }
-  }
-
-  memcpy(onScreen, newScreen, sizeof(newScreen)); // Copy the content of newScreen to onScreen
+  // Read the sensor values and store them in the sensor array
+  sensor[0] = analogRead(sensorPin1);
+  sensor[1] = analogRead(sensorPin2);
+  sensor[2] = analogRead(sensorPin3);
+  sensor[3] = analogRead(sensorPin4);
 }
 
 void loop() { 
   // Print the humidity value on the LCD screen 
-  lcdPrint("fugtighed: " + String( map(analogRead(sensorPin),1023,0,0,100)),1,2);
-  Serial.println(analogRead(sensorPin)); // Print the sensor value to the serial monitor
+  lcdPrint("fugtighed: " + String(map(analogRead(largestSensorIndex),1023,0,0,100)),0,1);
+
+  Serial.println(
+    "\nsensor1:" + String(analogRead(sensorPin1)) + "       " + String(map(analogRead(sensorPin1),1023,0,0,100)) +
+    "\nsensor2:" + String(analogRead(sensorPin2)) + "       " + String(map(analogRead(sensorPin2),1023,0,0,100)) +
+    "\nsensor3:" + String(analogRead(sensorPin3)) + "       " + String(map(analogRead(sensorPin3),1023,0,0,100)) +
+    "\nsensor4:" + String(analogRead(sensorPin4)) + "       " + String(map(analogRead(sensorPin4),1023,0,0,100))
+  );
+
+  // Check if the humidity is less than 50%
+  if (map(analogRead(largestSensorIndex),1023,0,0,100) < 50) {
+    // Turn on the motor
+    digitalWrite(motor, HIGH);
+    // Print the watering time on the LCD screen
+    lcdPrint("vander: " + String(watering_time_s - tiksSinceLastScan/second_t),1,2);
+    // Turn off the motor after the watering time
+    digitalWrite(motor, LOW);
+  }
+
+  // Check if the time since last scan is greater than the threshold
+  if(thresh_s * second_t <= tiksSinceLastScan){ 
+    // Read the sensor values and store them in the sensor array
+    sensor[0] = analogRead(sensorPin1);
+    sensor[1] = analogRead(sensorPin2);
+    sensor[2] = analogRead(sensorPin3);
+    sensor[3] = analogRead(sensorPin4);
+
+    // Check which sensor has the largest value
+    largestSensorIndex = findIndexOfLargest(sensor);
+  }
+
+  tiksSinceLastScan++;
+}
+
+// Function to find the index of the largest value in an array
+int findIndexOfLargest(const int arr[]) {
+  int maxIndex = 0; // Assume the first element is the largest
+
+  for (int i = 1; i < sizeof(arr)/sizeof(arr[0]); ++i) {
+    if (arr[i] > arr[maxIndex]) {
+      maxIndex = i;
+    }
+  }
+
+  return maxIndex;
 }
 
 // Function to map a value from one range to another
@@ -69,54 +104,18 @@ int nummap(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-// Function to control watering based on sensor reading
-void water() {
-  int sensorValue = analogRead(sensorPin);
-  
-  if (sensorValue < thresh) // if the sensor value is below the threshold
-    digitalWrite(motor, HIGH); // turn on the motor
-  else
-    digitalWrite(motor, LOW); // turn off the motor
-}
-
-// Function to print text on the LCD screen
-
 // Function to print text on the LCD screen
 void lcdPrint(String Write) {
-  byte newLcd[4][20];
-  memcpy(newLcd, newScreen, sizeof(newLcd)); // Copy the content of newScreen to newLcd
+  byte newLcd[4][20]{
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '}
+  };
 
+  //convert the Write string to a character array
   char writearray[Write.length() + 1];
-  strcpy(writearray, Write.c_str()); // Convert the string to a character array
-
-  // Update the newLcd array with the characters from the writearray
-  for ( int i = 0; i < strlen(writearray); i++) {
-    newLcd[onScreenPos[0]][i + onScreenPos[1]] = byte(writearray[i]);
-  }
-
-  // Update the LCD screen with the newLcd content
-  for(int i = 0; i < 4; i++) {
-    for(int j = 0; j < 20; j++) {
-      if(newLcd[i][j] != onScreen[i][j]) {
-        lcd.setCursor(j, i); // Set the cursor position on the LCD screen
-        lcd.write(newLcd[i][j]); // Write the character to the LCD screen
-      }
-    }
-  }
-
-  memcpy(onScreen, newLcd, sizeof(newLcd)); // Copy the content of newLcd to onScreen
-}
-
-// Function to print text on the LCD screen at specific position
-void lcdPrint(String Write, int col, int row) {
-  byte newLcd[4][20];
-  memcpy(newLcd, newScreen, sizeof(newLcd)); // Copy the content of newScreen to newLcd
-
-  onScreenPos[0] = col; // Update the row position of the cursor
-  onScreenPos[1] = row; // Update the column position of the cursor
-
-  char writearray[Write.length() + 1];
-  strcpy(writearray, Write.c_str()); // Convert the string to a character array
+  strcpy(writearray, Write.c_str());
 
   // Update the newLcd array with the characters from the writearray at the specified position
   for ( int i = 0; i < strlen(writearray); i++) {
@@ -127,12 +126,48 @@ void lcdPrint(String Write, int col, int row) {
   for(int i = 0; i < 4; i++) {
     for(int j = 0; j < 20; j++) {
       if(newLcd[i][j] != onScreen[i][j]) {
-        lcd.setCursor(j, i); // Set the cursor position on the LCD screen
-        lcd.write(newLcd[i][j]); // Write the character to the LCD screen
+        lcd.setCursor(j, i); 
+        lcd.write(newLcd[i][j]);
       }
     }
   }
   
-  memcpy(onScreen, newLcd, sizeof(newLcd)); // Copy the content of newLcd to onScreen
+  // Copy the content of newLcd to onScreen
+  memcpy(onScreen, newLcd, sizeof(newLcd));
 }
 
+// Function to print text on the LCD screen at specific position
+void lcdPrint(String Write, int col, int row) {
+  byte newLcd[4][20]{
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '},
+    {' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' '}
+  };
+
+  // Update the onScreenPos array with the new position
+  onScreenPos[0] = col; 
+  onScreenPos[1] = row; 
+
+  //convert the Write string to a character array
+  char writearray[Write.length() + 1];
+  strcpy(writearray, Write.c_str());
+
+  // Update the newLcd array with the characters from the writearray at the specified position
+  for ( int i = 0; i < strlen(writearray); i++) {
+    newLcd[onScreenPos[0]][i + onScreenPos[1]] = byte(writearray[i]);
+  }
+
+  // Update the LCD screen with the newLcd content
+  for(int i = 0; i < 4; i++) {
+    for(int j = 0; j < 20; j++) {
+      if(newLcd[i][j] != onScreen[i][j]) {
+        lcd.setCursor(j, i); 
+        lcd.write(newLcd[i][j]);
+      }
+    }
+  }
+  
+  // Copy the content of newLcd to onScreen
+  memcpy(onScreen, newLcd, sizeof(newLcd));
+}
