@@ -6,7 +6,7 @@
 #define second_t 16000000
 #define second 1000
 
-#define motor 13
+#define motor 12
 #define sensorPin A0
 
 #define thresh  500
