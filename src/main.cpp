@@ -3,10 +3,13 @@
 #include <LiquidCrystal_I2C.h>
 
 //defining constants
-#define second_t         16000000
+#define second_t         16000
 #define thresh_s         10
 #define watering_time_s  10
+#define beep_time_s      1
 
+#define water_sensor     4
+#define buzzer           3
 #define motor            12
 #define sensorPin1       A0
 #define sensorPin2       A1
@@ -26,6 +29,8 @@ int findIndexOfLargest(const int arr[]);
 int tiksSinceLastScan = 0; 
 int sensor[4] = {0, 0, 0, 0}; 
 int largestSensorIndex = 0;
+int beep_time = 0;
+bool beep = false;
 
 // 2D array to store the LCD screen content
 byte onScreen[4][20] = {
@@ -40,7 +45,12 @@ void setup() {
   // initialize the LCD
   lcd.init(); 
   lcd.backlight(); 
-  pinMode(motor, OUTPUT); 
+  pinMode(motor, OUTPUT);
+  pinMode(buzzer, OUTPUT);
+  pinMode(sensorPin1, INPUT);
+  pinMode(sensorPin2, INPUT);
+  pinMode(sensorPin3, INPUT);
+  pinMode(sensorPin4, INPUT);  
   Serial.begin(9600);
 
   // Read the sensor values and store them in the sensor array
@@ -51,6 +61,7 @@ void setup() {
 }
 
 void loop() { 
+  analogWrite(3, 128);
   // Print the humidity value on the LCD screen 
   lcdPrint("fugtighed: " + String(map(analogRead(largestSensorIndex),1023,0,0,100)),0,1);
 
@@ -60,6 +71,20 @@ void loop() {
     "\nsensor3:" + String(analogRead(sensorPin3)) + "       " + String(map(analogRead(sensorPin3),1023,0,0,100)) +
     "\nsensor4:" + String(analogRead(sensorPin4)) + "       " + String(map(analogRead(sensorPin4),1023,0,0,100))
   );
+
+  if(digitalRead(water_sensor) == LOW && beep){
+    analogWrite(buzzer, 128);
+    beep_time++;
+    if(beep_time == beep_time_s * second_t){
+      beep = false;
+    }
+  }else if(!beep){
+    analogWrite(buzzer, 0);
+    beep_time--;
+    if(beep_time == 0){
+      beep = true;
+    }
+  }
 
   // Check if the humidity is less than 50%
   if (map(analogRead(largestSensorIndex),1023,0,0,100) < 50) {
