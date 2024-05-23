@@ -61,7 +61,7 @@ void setup() {
 }
 
 void loop() { 
-  analogWrite(3, 128);
+  //analogWrite(3, 128);
   // Print the humidity value on the LCD screen 
   lcdPrint("fugtighed: " + String(map(analogRead(largestSensorIndex),1023,0,0,100)),0,1);
 
